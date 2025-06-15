@@ -13,6 +13,7 @@
 package org.assertj.core.internal;
 
 import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.assertj.core.api.BDDAssertions.then;
 import static org.mockito.ArgumentMatchers.any;
@@ -21,6 +22,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import org.assertj.core.api.recursive.comparison.ComparisonDifference;
 import org.assertj.core.api.recursive.comparison.RecursiveComparisonConfiguration;
 import org.assertj.core.api.recursive.comparison.RecursiveComparisonDifferenceCalculator;
 import org.junit.jupiter.api.Test;
@@ -85,6 +87,34 @@ class ConfigurableRecursiveFieldByFieldComparator_Test {
     // THEN
     then(throwable).isInstanceOf(NullPointerException.class)
                    .hasMessage("RecursiveComparisonConfiguration must not be null");
+  }
+
+  /**
+   * 이 테스트는 RecursiveComparisonDifferenceCalculator가 차이점을 보고했을 때,
+   * ConfigurableRecursiveFieldByFieldComparator의 compare 메서드가 0이 아닌 값을 반환하여
+   * 두 객체가 동일하지 않음을 올바르게 나타내는지 검증합니다.
+   */
+  @Test
+  void should_not_return_0_if_recursiveComparisonDifferenceCalculator_reports_differences() {
+    // GIVEN
+    RecursiveComparisonDifferenceCalculator recursiveComparisonDifferenceCalculator = mock(RecursiveComparisonDifferenceCalculator.class);
+    RecursiveComparisonConfiguration recursiveComparisonConfiguration = new RecursiveComparisonConfiguration();
+    configurableRecursiveFieldByFieldComparator = new ConfigurableRecursiveFieldByFieldComparator(recursiveComparisonConfiguration,
+      recursiveComparisonDifferenceCalculator);
+    // 차이점 리스트가 비어있지 않도록 설정합니다.
+    given(recursiveComparisonDifferenceCalculator.determineDifferences(any(), any(), any()))
+      .willReturn(singletonList(mock(ComparisonDifference.class)));
+    String actual = "foo";
+    String other = "bar";
+
+    // WHEN
+    int compare = configurableRecursiveFieldByFieldComparator.compare(actual, other);
+
+    // THEN
+    // 비교 로직이 위임되었는지 확인합니다.
+    verify(recursiveComparisonDifferenceCalculator).determineDifferences(actual, other, recursiveComparisonConfiguration);
+    // 차이점이 있으므로 비교 결과가 0이 아니어야 합니다.
+    then(compare).isNotZero();
   }
 
 }
